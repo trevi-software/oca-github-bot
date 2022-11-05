@@ -18,10 +18,14 @@ services:
     volumes:
       - ./data/cache:/app/run/.cache
       - ./data/simple-index:/app/run/simple-index
+      - ./data/icon:/app/run/icon
     restart: unless-stopped
     command: python -m oca_github_bot
     depends_on:
       - queue
+    networks:
+      - default
+      - external
   worker:
     build: .
     links:
@@ -63,3 +67,8 @@ services:
     command: celery --app=oca_github_bot.queue.app flower
     depends_on:
       - queue
+
+networks:
+  external:
+    name: nginx-proxy-internal
+

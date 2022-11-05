@@ -51,7 +51,7 @@ def _gen_addons_readme(org, repo, branch, cwd):
 @switchable("gen_addons_icon")
 def _gen_addons_icon(org, repo, branch, cwd):
     _logger.info("oca-gen-addon-icon in %s/%s@%s", org, repo, branch)
-    gen_addon_icon_cmd = ["oca-gen-addon-icon", "--addons-dir", cwd, "--commit"]
+    gen_addon_icon_cmd = ["oca-gen-addon-icon", "--addons-dir", cwd, "--commit", "--src-icon", "/app/run/icon/icon.png"]
     check_call(gen_addon_icon_cmd, cwd=cwd)
 
 
