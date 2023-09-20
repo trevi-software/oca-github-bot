@@ -29,6 +29,18 @@ def _find_issue(gh_repo, milestone, target_branch):
     return issue
 
 
+def _check_line_issue(gh_pr_number, issue_body):
+    lines = []
+    regex = r"\#%s\b" % gh_pr_number
+    for line in issue_body.split("\n"):
+        if re.findall(regex, line):
+            checked_line = line.replace("[ ]", "[x]", 1)
+            lines.append(checked_line)
+            continue
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def _set_lines_issue(gh_pr_user_login, gh_pr_number, issue_body, module):
     lines = []
     added = False
@@ -69,6 +81,14 @@ def _set_lines_issue(gh_pr_user_login, gh_pr_number, issue_body, module):
     if not added:
         lines.append(new_line)
     return "\n".join(lines), old_pr_number
+
+
+def _mark_migration_done_in_migration_issue(gh_repo, target_branch, gh_pr):
+    milestone = _create_or_find_branch_milestone(gh_repo, target_branch)
+    migration_issue = _find_issue(gh_repo, milestone, target_branch)
+    if migration_issue:
+        new_body = _check_line_issue(gh_pr.number, migration_issue.body)
+        migration_issue.edit(body=new_body)
 
 
 @task()
@@ -122,18 +142,22 @@ def migration_issue_start(org, repo, pr, username, module=None, dry_run=False):
             new_body, old_pr_number = _set_lines_issue(
                 gh_pr.user.login, gh_pr.number, issue.body, module
             )
-            issue.edit(body=new_body)
             if old_pr_number and old_pr_number != pr:
                 old_pr = gh.pull_request(org, repo, old_pr_number)
-                github.gh_call(
-                    gh_pr.create_comment,
-                    f"The migration issue (#{issue.number}) has been updated"
-                    f" to reference the current pull request.\n"
-                    f"however, a previous pull request was referenced :"
-                    f" #{old_pr_number}.\n"
-                    f"Perhaps you should check that there is no duplicate work.\n"
-                    f"CC : @{old_pr.user.login}",
-                )
+                if old_pr.state == "closed":
+                    issue.edit(body=new_body)
+                else:
+                    github.gh_call(
+                        gh_pr.create_comment,
+                        f"The migration issue (#{issue.number})"
+                        f" has not been updated to reference the current pull request"
+                        f" because a previous pull request (#{old_pr_number})"
+                        f" is not closed.\n"
+                        f"Perhaps you should check that there is no duplicate work.\n"
+                        f"CC @{old_pr.user.login}",
+                    )
+            else:
+                issue.edit(body=new_body)
         except Exception as e:
             github.gh_call(
                 gh_pr.create_comment,
